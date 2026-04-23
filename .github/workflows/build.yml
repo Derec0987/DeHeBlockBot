@@ -3,56 +3,66 @@ name: Build DeHeBlockBot
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: macos-14
-
-    env:
-      THEOS: /Users/runner/theos
+    runs-on: macos-latest
 
     steps:
-      - name: Checkout
+      # ── 1. 下載程式碼 ──────────────────────────────────────
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Theos and SDK
+      # ── 2. 安裝 Theos ──────────────────────────────────────
+      - name: Install Theos
         run: |
           set -e
-          git clone --recursive https://github.com/theos/theos.git "$THEOS"
-          curl -sL "https://github.com/theos/sdks/archive/refs/heads/master.tar.gz" \
-            -o /tmp/sdks.tar.gz
-          tar xzf /tmp/sdks.tar.gz -C /tmp/
-          mkdir -p "$THEOS/sdks"
-          cp -rn /tmp/sdks-master/*.sdk "$THEOS/sdks/" 2>/dev/null || true
+          git clone --recursive https://github.com/theos/theos.git $THEOS
           echo "=== SDKs ==="
-          ls "$THEOS/sdks/"
+          ls $THEOS/sdks
+        env:
+          THEOS: ${{ runner.temp }}/theos
 
-      - name: Build Package
+      # ── 3. 下載 iPhoneOS16.5 SDK ───────────────────────────
+      - name: Download iOS 16.5 SDK
         run: |
+          set -e
+          curl -L \
+            https://github.com/theos/sdks/releases/download/2024Q1/iPhoneOS16.5.sdk.tar.xz \
+            -o iPhoneOS16.5.sdk.tar.xz
+          tar -xf iPhoneOS16.5.sdk.tar.xz -C $THEOS/sdks
+          echo "=== Installed SDKs ==="
+          ls $THEOS/sdks
+        env:
+          THEOS: ${{ runner.temp }}/theos
+
+      # ── 4. 編譯並打包 ──────────────────────────────────────
+      - name: Build & Package
+        run: |
+          set -e
           export PATH="$THEOS/bin:$PATH"
-          make clean || true
-          make package FINALPACKAGE=1 THEOS="$THEOS"
+          make clean
+          make package FINALPACKAGE=1 STRIP=0
+          echo "=== Built packages ==="
+          ls -lh packages/
+        env:
+          THEOS: ${{ runner.temp }}/theos
 
-      - name: List outputs
-        run: |
-          echo "=== dylib ==="
-          find .theos -name "*.dylib" -ls 2>/dev/null || echo "no dylib"
-          echo "=== deb ==="
-          find packages -name "*.deb" -ls 2>/dev/null || echo "no deb"
-
-      - name: Upload dylib
-        uses: actions/upload-artifact@v4
-        with:
-          name: DeHeBlockBot-dylib
-          path: .theos/obj/**/*.dylib
-          if-no-files-found: warn
-
-      - name: Upload deb package
+      # ── 5. 上傳 .deb ───────────────────────────────────────
+      - name: Upload .deb artifact
         uses: actions/upload-artifact@v4
         with:
           name: DeHeBlockBot-deb
           path: packages/*.deb
-          if-no-files-found: warn
+          retention-days: 30
+
+      # ── 6. 自動發布 Release（只在 push tag 時觸發）─────────
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: packages/*.deb
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
