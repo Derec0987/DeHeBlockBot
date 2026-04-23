@@ -1,68 +1,25 @@
-name: Build DeHeBlockBot
-
-on:
-  push:
-    branches: [main]
-  workflow_dispatch:
+name: Build BlockBot Dylib
+on: [push, workflow_dispatch]
 
 jobs:
   build:
-    runs-on: macos-latest
-
+    runs-on: macos-14
     steps:
-      # ── 1. 下載程式碼 ──────────────────────────────────────
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - name: Checkout Code
+        uses: actions/checkout@v3
 
-      # ── 2. 安裝 Theos ──────────────────────────────────────
-      - name: Install Theos
+      - name: Setup Theos
         run: |
-          set -e
+          export THEOS=~/theos
           git clone --recursive https://github.com/theos/theos.git $THEOS
-          echo "=== SDKs ==="
-          ls $THEOS/sdks
-        env:
-          THEOS: ${{ runner.temp }}/theos
+          git clone https://github.com/theos/sdks.git $THEOS/sdks
 
-      # ── 3. 下載 iPhoneOS16.5 SDK ───────────────────────────
-      - name: Download iOS 16.5 SDK
+      - name: Build Package
         run: |
-          set -e
-          curl -L \
-            https://github.com/theos/sdks/releases/download/2024Q1/iPhoneOS16.5.sdk.tar.xz \
-            -o iPhoneOS16.5.sdk.tar.xz
-          tar -xf iPhoneOS16.5.sdk.tar.xz -C $THEOS/sdks
-          echo "=== Installed SDKs ==="
-          ls $THEOS/sdks
-        env:
-          THEOS: ${{ runner.temp }}/theos
+          make package THEOS=~/theos
 
-      # ── 4. 編譯並打包 ──────────────────────────────────────
-      - name: Build & Package
-        run: |
-          set -e
-          export PATH="$THEOS/bin:$PATH"
-          make clean
-          make package FINALPACKAGE=1 STRIP=0
-          echo "=== Built packages ==="
-          ls -lh packages/
-        env:
-          THEOS: ${{ runner.temp }}/theos
-
-      # ── 5. 上傳 .deb ───────────────────────────────────────
-      - name: Upload .deb artifact
-        uses: actions/upload-artifact@v4
+      - name: Upload Dylib
+        uses: actions/upload-artifact@v3
         with:
-          name: DeHeBlockBot-deb
-          path: packages/*.deb
-          retention-days: 30
-
-      # ── 6. 自動發布 Release（只在 push tag 時觸發）─────────
-      - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: packages/*.deb
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: DeHeBot-Dylib
+          path: .theos/obj/debug/*.dylib
