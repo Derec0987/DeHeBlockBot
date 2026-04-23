@@ -1,4 +1,3 @@
-cat > Tweak.x << 'EOF'
 #import <UIKit/UIKit.h>
 #import "BotController.hpp"
 
@@ -63,4 +62,3 @@ static BOOL                    gStarted = NO;
         NSLog(@"[BlockBot] Restarted via notification");
     }];
 }
-EOF
