@@ -1,0 +1,9 @@
+Package: com.dehe.blockbot
+Name: DeHeBlockBot
+Version: 1.0.0
+Architecture: iphoneos-arm64
+Description: Block puzzle auto-solver for iPhone 14 Pro (educational)
+Maintainer: DeHe
+Author: DeHe
+Section: Tweaks
+Depends: mobilesubstrate

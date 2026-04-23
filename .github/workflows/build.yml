@@ -1,0 +1,58 @@
+name: Build DeHeBlockBot
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-14
+
+    env:
+      THEOS: /Users/runner/theos
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Theos and SDK
+        run: |
+          set -e
+          git clone --recursive https://github.com/theos/theos.git "$THEOS"
+          curl -sL "https://github.com/theos/sdks/archive/refs/heads/master.tar.gz" \
+            -o /tmp/sdks.tar.gz
+          tar xzf /tmp/sdks.tar.gz -C /tmp/
+          mkdir -p "$THEOS/sdks"
+          cp -rn /tmp/sdks-master/*.sdk "$THEOS/sdks/" 2>/dev/null || true
+          echo "=== SDKs ==="
+          ls "$THEOS/sdks/"
+
+      - name: Build Package
+        run: |
+          export PATH="$THEOS/bin:$PATH"
+          make clean || true
+          make package FINALPACKAGE=1 THEOS="$THEOS"
+
+      - name: List outputs
+        run: |
+          echo "=== dylib ==="
+          find .theos -name "*.dylib" -ls 2>/dev/null || echo "no dylib"
+          echo "=== deb ==="
+          find packages -name "*.deb" -ls 2>/dev/null || echo "no deb"
+
+      - name: Upload dylib
+        uses: actions/upload-artifact@v4
+        with:
+          name: DeHeBlockBot-dylib
+          path: .theos/obj/**/*.dylib
+          if-no-files-found: warn
+
+      - name: Upload deb package
+        uses: actions/upload-artifact@v4
+        with:
+          name: DeHeBlockBot-deb
+          path: packages/*.deb
+          if-no-files-found: warn
