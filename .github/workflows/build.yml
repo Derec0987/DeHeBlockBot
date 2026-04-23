@@ -6,7 +6,11 @@ jobs:
     runs-on: macos-14
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4  # 🌟 這裡升級到 v4
+        uses: actions/checkout@v4
+
+      # 🌟 關鍵補丁：為雲端 Mac 安裝簽名工具 (ldid)
+      - name: Install ldid
+        run: brew install ldid
 
       - name: Setup Theos
         run: |
@@ -20,7 +24,7 @@ jobs:
           make package THEOS=~/theos
 
       - name: Upload Dylib
-        uses: actions/upload-artifact@v4  # 🌟 這裡升級到 v4
+        uses: actions/upload-artifact@v4
         with:
           name: DeHeBot-Dylib
           path: .theos/obj/debug/*.dylib
